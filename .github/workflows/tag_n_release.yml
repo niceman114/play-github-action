@@ -8,26 +8,26 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
     steps:
+    - name: Started
+      run : |
+        echo "Sending to Slack..."
+        curl -X POST -H 'Content-type: application/json' --data '{"text":"Build started."}' ${{ secrets.SLACK_WEBHOOK_URL }}
     - name: Checkout
       uses: actions/checkout@v4
     - name: Extract version from commit message
       id: check-version
-      run: |
-        version=$(echo '${{ github.event.head_commit.message }}' | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+')
-        if [ -z "$version" ]; then
-          echo "Version not found in commit message."
-          echo "Sending error to Slack..."
-          curl -X POST -H 'Content-type: application/json' --data '{"text":"Error: Version not found in commit message."}' ${{ secrets.SLACK_WEBHOOK_URL }}
-          exit 1
-        fi
-        echo "VERSION=$version" >> $GITHUB_ENV
-        echo Extracted version : $version
-    - name: Create new release
-      if: steps.check-version.outputs.VERSION != ''
-      uses: actions/create-release@v1
       env:
-        VERSION: ${{ steps.check-version.outputs.VERSION }}
-      with: 
-        tag_name: v${{ env.VERSION }}
-        release_name: v${{ env.VERSION }}
+        COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+      run: sh .github/workflows/scripts/extract_version.sh
+    - name: Create new release
+      if: env.VERSION != ''
+      uses: actions/create-release@v1
+      env: 
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ env.VERSION }}
+        release_name: ${{ env.VERSION }}
+
